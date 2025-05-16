@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>AA制费用分摊系统</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 20px;
+        }
+        .section {
+            margin-bottom: 30px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+        input, select, button {
+            margin: 5px;
+            padding: 8px;
+        }
+        #chartContainer {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="section">
+        <h2>添加参与者</h2>
+        <input type="text" id="nameInput" placeholder="输入姓名">
+        <button onclick="addParticipant()">添加成员</button>
+    </div>
+
+    <div class="section">
+        <h2>添加支出</h2>
+        <select id="payerSelect">
+            <option value="">选择付款人</option>
+        </select>
+        <input type="number" id="amountInput" placeholder="金额（元）">
+        <button onclick="addExpense()">记录支出</button>
+    </div>
+
+    <div class="section">
+        <h2>当前余额</h2>
+        <div id="balances"></div>
+        <canvas id="balanceChart"></canvas>
+    </div>
+
+    <script>
+        let group = {
+            participants: {},
+            addParticipant(name) {
+                if (!this.participants[name]) {
+                    this.participants[name] = 0;
+                    updatePayerSelect();
+                    saveData();
+                }
+            },
+            addExpense(payer, amount) {
+                const share = amount / Object.keys(this.participants).length;
+                for (const p in this.participants) {
+                    this.participants[p] -= share;
+                }
+                this.participants[payer] += Number(amount);
+                updateDisplay();
+                saveData();
+            }
+        };
+
+        let myChart = null;
+
+        function addParticipant() {
+            const name = document.getElementById('nameInput').value.trim();
+            if (name) {
+                group.addParticipant(name);
+                document.getElementById('nameInput').value = '';
+                updateDisplay();
+            }
+        }
+
+        function addExpense() {
+            const payer = document.getElementById('payerSelect').value;
+            const amount = document.getElementById('amountInput').value;
+            if (payer && amount > 0) {
+                group.addExpense(payer, amount);
+                document.getElementById('amountInput').value = '';
+            }
+        }
+
+        function updatePayerSelect() {
+            const select = document.getElementById('payerSelect');
+            select.innerHTML = '<option value="">选择付款人</option>';
+            Object.keys(group.participants).forEach(name => {
+                const option = document.createElement('option');
+                option.value = name;
+                option.textContent = name;
+                select.appendChild(option);
+            })
+        function saveData() {
+            localStorage.setItem('aaGroup', JSON.stringify(group));
+        }
+        window.onload = function() {
+            updatePayerSelect();
+            updateDisplay();
+        };
+        }
+
+        function updateDisplay() {
+            // 更新余额显示
+            const balancesDiv = document.getElementById('balances');
+            balancesDiv.innerHTML = Object.entries(group.participants)
+                .map(([name, balance]) => 
+                    `<div>${name}: ${balance.toFixed(2)}元</div>`)
+                .join('');
+
+            // 更新图表
+            const ctx = document.getElementById('balanceChart').getContext('2d');
+            if (myChart) myChart.destroy();
+            
+            myChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: Object.keys(group.participants),
+                    datasets: [{
+                        label: '余额（元）',
+                        data: Object.values(group.participants),
+                        backgroundColor: ['#4CAF50', '#2196F3', '#ff9800'],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+
+    </script>
+</body>
+</html>
